@@ -193,6 +193,7 @@ Ruppert	Stüwe	SPD
 Claudia	Tausend	SPD
 Michael	Thews	SPD
 Markus	Töns	SPD
+Ana-Maria	Trasnea	SPD
 Carsten	Träger	SPD
 Anja	Troff-Schaffarzyk	SPD
 Derya	Türk-Nachbaur	SPD
@@ -514,6 +515,7 @@ Filiz	Polat	BÜ90/GR
 Anja	Reinalter	BÜ90/GR
 Tabea	Rößner	BÜ90/GR
 Claudia	Roth (Augsburg)	BÜ90/GR
+Manuela	Rottmann	BÜ90/GR
 Corinna	Rüffer	BÜ90/GR
 Michael	Sacher	BÜ90/GR
 Jamila	Schäfer	BÜ90/GR
@@ -526,11 +528,13 @@ Kordula	Schulz-Asche	BÜ90/GR
 Nyke	Slawik	BÜ90/GR
 Anne Monika	Spallek	BÜ90/GR
 Merle	Spellerberg	BÜ90/GR
+Nina	Stahr	BÜ90/GR
 Till	Steffen	BÜ90/GR
 Hanna	Steinmüller	BÜ90/GR
 Wolfgang	Strengmann-Kuhn	BÜ90/GR
 Kassem	Taher Saleh	BÜ90/GR
 Awet	Tesfaiesus	BÜ90/GR
+Jürgen	Trittin	BÜ90/GR
 Katrin	Uhlig	BÜ90/GR
 Julia	Verlinden	BÜ90/GR
 Niklas	Wagener	BÜ90/GR
@@ -569,6 +573,7 @@ Fabian	Griewel	FDP
 Nils	Gründer	FDP
 Julian	Grünke	FDP
 Thomas	Hacker	FDP
+Reginald	Hanke	FDP
 Philipp	Hartewig	FDP
 Ulrike	Harzer	FDP
 Peter	Heidt	FDP
@@ -591,9 +596,11 @@ Carina	Konrad	FDP
 Michael	Kruse	FDP
 Wolfgang	Kubicki	FDP
 Konstantin	Kuhle	FDP
+Alexander	Lambsdorff	FDP
 Ulrich	Lechte	FDP
 Jürgen	Lenders	FDP
 Thorsten	Lieb	FDP
+Lars	Lindemann	FDP
 Christian	Lindner	FDP
 Michael Georg	Link (Heilbronn)	FDP
 Oliver	Luksic	FDP
@@ -605,7 +612,9 @@ Alexander	Müller	FDP
 Frank	Müller-Rosentritt	FDP
 Claudia	Raffelhüschen	FDP
 Volker	Redder	FDP
+Hagen	Reinhold	FDP
 Bernd	Reuther	FDP
+Thomas	Sattelberger	FDP
 Christian	Sauter	FDP
 Frank	Schäffler	FDP
 Ria	Schröder	FDP
@@ -616,9 +625,11 @@ Rainer	Semet	FDP
 Judith	Skudelny	FDP
 Bettina	Stark-Watzinger	FDP
 Konrad	Stockmeier	FDP
+Marie-Agnes	Strack-Zimmermann	FDP
 Benjamin	Strasser	FDP
 Linda	Teuteberg	FDP
 Jens	Teutrine	FDP
+Michael	Theurer	FDP
 Stephan	Thomae	FDP
 Nico	Tippelt	FDP
 Manfred	Todtenhausen	FDP
@@ -644,6 +655,7 @@ Dirk	Brandes	AfD
 Stephan	Brandner	AfD
 Jürgen	Braun	AfD
 Marcus	Bühl	AfD
+Petr	Bystron	AfD
 Tino	Chrupalla	AfD
 Gottfried	Curio	AfD
 Thomas	Dietz	AfD
@@ -666,6 +678,7 @@ Leif-Erik	Holm	AfD
 Gerrit	Huy	AfD
 Fabian	Jacobi	AfD
 Steffen	Janich	AfD
+Marc	Jongen	AfD
 Malte	Kaufmann	AfD
 Michael	Kaufmann	AfD
 Stefan	Keuter	AfD
@@ -674,7 +687,9 @@ Enrico	Komning	AfD
 Jörn	König	AfD
 Steffen	Kotré	AfD
 Rainer	Kraft	AfD
+Barbara	Lenk	AfD
 Rüdiger	Lucassen	AfD
+Corinna	Miazga	AfD
 Mike	Moncsek	AfD
 Matthias	Moosdorf	AfD
 Volker	Münz	AfD
@@ -719,11 +734,13 @@ Ates	Gürpinar	Die Linke
 Gregor	Gysi	Die Linke
 André	Hahn	Die Linke
 Susanne	Hennig-Wellsow	Die Linke
+Katja	Kipping	Die Linke
 Jan	Korte	Die Linke
 Ina	Latendorf	Die Linke
 Caren	Lay	Die Linke
 Ralph	Lenkert	Die Linke
 Gesine	Lötzsch	Die Linke
+Pascal	Meiser	Die Linke
 Cornelia	Möhring	Die Linke
 Petra	Pau	Die Linke
 Sören	Pellmann	Die Linke
@@ -735,7 +752,7 @@ Petra	Sitte	Die Linke
 Kathrin	Vogler	Die Linke
 Janine	Wissler	Die Linke
 Ali	Al-Dailami	BSW
-Sevim	Dağdelen	BSW
+Sevim	Dagdelen	BSW
 Klaus	Ernst	BSW
 Andrej	Hunko	BSW
 Christian	Leye	BSW
