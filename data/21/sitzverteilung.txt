@@ -1,7 +1,0 @@
-fraktion 	sitze
-AfD	150
-BÜ90/GR	85
-CDU/CSU	208
-Die Linke	64
-Fraktionslos	3
-SPD	120

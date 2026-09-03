@@ -1,9 +1,0 @@
-fraktion 	sitze
-BSW	10
-CDU/CSU	196
-Die Linke	39
-SPD	207
-BÜ90/GR	117
-AfD	76
-Fraktionslos	9
-FDP	90

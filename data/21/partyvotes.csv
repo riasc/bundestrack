@@ -1,0 +1,15 @@
+# ja/nein/Enthaltung/ungueltig/nichtabgegeben: votes attributed to whichever fraction a member
+#   belonged to at the time of each vote, not their final/current fraction
+# total_votes: sum of the above
+# ratio_*: category / total_votes (weighted per vote, so a day with many bundled votes counts more)
+# days_total: sitting days this fraction had at least one member recorded
+# ratio_days_present: for each sitting day, share of that fraction's members who cast a real vote
+#   that day, averaged equally across days (a bundled-vote day doesn't count extra)
+# ratio_days_absent: 1 - ratio_days_present
+Fraktion/Gruppe;ja;nein;Enthaltung;ungültig;nichtabgegeben;total_votes;ratio_ja;ratio_nein;ratio_Enthaltung;ratio_ungültig;ratio_nichtabgegeben;days_total;ratio_days_present;ratio_days_absent
+CDU/CSU;10716;2824;4;0;598;14142;0.7577428935086975;0.19968887003252722;0.000282845424975251;0.0;0.04228539103380003;32;0.9652725914861837;0.03472740851381628
+SPD;6050;1607;19;0;481;8157;0.7416942503371338;0.1970087041804585;0.0023292877283314943;0.0;0.058967757754076255;32;0.9460390406162466;0.05396095938375345
+BÜ90/GR;2611;1975;597;0;597;5780;0.45173010380622836;0.3416955017301038;0.10328719723183391;0.0;0.10328719723183391;32;0.9191176470588235;0.08088235294117652
+AfD;2841;5725;401;0;1275;10242;0.27738722905682484;0.5589728568638938;0.03915250927553212;0.0;0.12448740480374927;32;0.8925400110375276;0.10745998896247244
+Die Linke;1238;2064;285;0;765;4352;0.2844669117647059;0.4742647058823529;0.06548713235294118;0.0;0.17578125;32;0.85546875;0.14453125
+Fraktionslos;51;38;7;0;66;162;0.3148148148148148;0.2345679012345679;0.043209876543209874;0.0;0.4074074074074074;32;0.59375;0.40625

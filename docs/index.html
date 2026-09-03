@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BundesTrack</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #e2e2e0;
+    --accent: #2d5f8a;
+    --ja: #2e7d32;
+    --nein: #c62828;
+    --enthaltung: #f9a825;
+    --ungueltig: #616161;
+    --nichtabgegeben: #bdbdbd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 1.5rem 2rem 1rem;
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 1.4rem; }
+  header .sub { color: var(--muted); font-size: 0.9rem; }
+  header .controls { margin-left: auto; display: flex; gap: 0.75rem; align-items: center; }
+  select, input[type=search] {
+    font: inherit;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text);
+  }
+  nav.tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.75rem 2rem 0;
+    background: var(--panel);
+  }
+  nav.tabs button {
+    font: inherit;
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  nav.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  main { padding: 1.5rem 2rem 3rem; max-width: 1200px; margin: 0 auto; }
+  section { display: none; }
+  section.active { display: block; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  #partyChart { max-height: 420px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { padding: 0.45rem 0.6rem; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: left; }
+  th { cursor: pointer; color: var(--muted); font-weight: 600; user-select: none; position: sticky; top: 0; background: var(--panel); }
+  th[title] { text-decoration: underline dotted; text-underline-offset: 3px; }
+  th:hover { color: var(--text); }
+  th.sorted::after { content: " " attr(data-arrow); }
+  tbody tr:hover { background: #f0f4f8; }
+  .table-wrap { overflow-x: auto; max-height: 70vh; overflow-y: auto; }
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BundesTrack</h1>
+  <span class="sub">Namentliche Abstimmungen im Bundestag</span>
+  <div class="controls">
+    <select id="periodSelect"></select>
+    <input type="search" id="memberSearch" placeholder="Abgeordnete/n suchen..." hidden>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="parties" class="active">Fraktionen</button>
+  <button data-tab="members">Abgeordnete</button>
+</nav>
+
+<main>
+  <section id="parties" class="active">
+    <div class="card">
+      <canvas id="partyChart"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--ja)"></i>ja</span>
+        <span><i class="swatch" style="background:var(--nein)"></i>nein</span>
+        <span><i class="swatch" style="background:var(--enthaltung)"></i>Enthaltung</span>
+        <span><i class="swatch" style="background:var(--ungueltig)"></i>ungültig</span>
+        <span><i class="swatch" style="background:var(--nichtabgegeben)"></i>nichtabgegeben</span>
+      </div>
+    </div>
+    <div class="card table-wrap">
+      <table id="partyTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="members">
+    <div class="card table-wrap">
+      <table id="memberTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+</main>
+
+<script>
+const PARTY_COLORS = {
+  "CDU/CSU": "#4a4a4a", "SPD": "#E3000F", "AfD": "#009EE0", "FDP": "#e0c200",
+  "BÜ90/GR": "#46962b", "Die Linke": "#BE3075", "BSW": "#7D1243", "Fraktionslos": "#999999",
+};
+
+const PARTY_COLS = [
+  ["Fraktion/Gruppe", "Fraktion", "Stimmen werden der Fraktion zugeordnet, der ein Mitglied zum Zeitpunkt der jeweiligen Abstimmung angehörte – nicht der aktuellen/letzten Fraktion."],
+  ["total_votes", "Abstimmungen", "Summe aller abgegebenen und nicht abgegebenen Stimmen im gewählten Zeitraum."],
+  ["ratio_ja", "ja %", "Anteil 'ja' an allen Abstimmungen (je Abstimmung gezählt, ein Tag mit vielen gebündelten Abstimmungen zählt entsprechend mehrfach)."],
+  ["ratio_nein", "nein %", "Anteil 'nein' an allen Abstimmungen (je Abstimmung gezählt)."],
+  ["ratio_Enthaltung", "Enth. %", "Anteil Enthaltungen an allen Abstimmungen (je Abstimmung gezählt)."],
+  ["ratio_nichtabgegeben", "n.a. %", "Anteil nicht abgegebener Stimmen an allen Abstimmungen (je Abstimmung gezählt)."],
+  ["days_total", "Sitzungstage", "Anzahl der Sitzungstage, an denen diese Fraktion mindestens ein Mitglied hatte."],
+  ["ratio_days_present", "Anwesenheit %", "Für jeden Sitzungstag: Anteil der Fraktionsmitglieder, die an mindestens einer Abstimmung des Tages teilgenommen haben – gemittelt über alle Tage (jeder Tag zählt gleich, unabhängig von der Zahl gebündelter Abstimmungen)."],
+];
+const MEMBER_COLS = [
+  ["Fraktion/Gruppe", "Fraktion", "Aktuelle/letzte bekannte Fraktionszugehörigkeit des Abgeordneten."],
+  ["Vorname", "Vorname"], ["Name", "Name"],
+  ["total_votes", "Abstimmungen", "Summe aller abgegebenen und nicht abgegebenen Stimmen im gewählten Zeitraum."],
+  ["ratio_ja", "ja %", "Anteil 'ja' an allen Abstimmungen (je Abstimmung gezählt, ein Tag mit vielen gebündelten Abstimmungen zählt entsprechend mehrfach)."],
+  ["ratio_nein", "nein %", "Anteil 'nein' an allen Abstimmungen (je Abstimmung gezählt)."],
+  ["ratio_Enthaltung", "Enth. %", "Anteil Enthaltungen an allen Abstimmungen (je Abstimmung gezählt)."],
+  ["ratio_nichtabgegeben", "n.a. %", "Anteil nicht abgegebener Stimmen an allen Abstimmungen (je Abstimmung gezählt)."],
+  ["days_total", "Sitzungstage", "Anzahl der Sitzungstage im gewählten Zeitraum."],
+  ["ratio_days_present", "Anwesenheit %", "Anteil der Sitzungstage, an denen der/die Abgeordnete an mindestens einer Abstimmung teilgenommen hat (jeder Tag zählt gleich, unabhängig von der Zahl gebündelter Abstimmungen an diesem Tag)."],
+];
+const PCT_COLS = new Set(["ratio_ja", "ratio_nein", "ratio_Enthaltung", "ratio_ungültig", "ratio_nichtabgegeben", "ratio_days_present", "ratio_days_absent"]);
+
+let chart, partyData = [], memberData = [];
+const sortState = { party: { key: "total_votes", asc: false }, member: { key: "ratio_nichtabgegeben", asc: false } };
+
+function fmt(key, value) {
+  if (PCT_COLS.has(key)) return (value * 100).toFixed(1) + "%";
+  return value;
+}
+
+function renderTable(tableId, cols, data, kind) {
+  const table = document.getElementById(tableId);
+  const state = sortState[kind];
+  const sorted = [...data].sort((a, b) => {
+    const [x, y] = [a[state.key], b[state.key]];
+    const cmp = typeof x === "string" ? x.localeCompare(y) : x - y;
+    return state.asc ? cmp : -cmp;
+  });
+
+  table.querySelector("thead").innerHTML = "<tr>" + cols.map(([key, label, desc]) => {
+    const sortedCls = key === state.key ? "sorted" : "";
+    const arrow = key === state.key ? (state.asc ? "▲" : "▼") : "";
+    const title = desc ? ` title="${desc.replace(/"/g, "&quot;")}"` : "";
+    return `<th data-key="${key}" class="${sortedCls}" data-arrow="${arrow}"${title}>${label}</th>`;
+  }).join("") + "</tr>";
+
+  table.querySelectorAll("th").forEach(th => th.onclick = () => {
+    if (state.key === th.dataset.key) state.asc = !state.asc;
+    else { state.key = th.dataset.key; state.asc = false; }
+    renderTable(tableId, cols, data, kind);
+  });
+
+  table.querySelector("tbody").innerHTML = sorted.map(row =>
+    "<tr>" + cols.map(([key]) => `<td>${fmt(key, row[key])}</td>`).join("") + "</tr>"
+  ).join("");
+}
+
+function renderChart(data) {
+  const sorted = [...data].sort((a, b) => b.total_votes - a.total_votes);
+  const labels = sorted.map(d => d["Fraktion/Gruppe"]);
+  const series = [
+    ["ratio_ja", "ja", "--ja"], ["ratio_nein", "nein", "--nein"],
+    ["ratio_Enthaltung", "Enthaltung", "--enthaltung"], ["ratio_ungültig", "ungültig", "--ungueltig"],
+    ["ratio_nichtabgegeben", "nichtabgegeben", "--nichtabgegeben"],
+  ];
+  const style = getComputedStyle(document.documentElement);
+  const datasets = series.map(([key, label, cssVar]) => ({
+    label, data: sorted.map(d => d[key] * 100),
+    backgroundColor: style.getPropertyValue(cssVar).trim(),
+  }));
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById("partyChart"), {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true, max: 100, title: { display: true, text: "%" } }, y: { stacked: true } },
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
+async function loadPeriod(period) {
+  const [parties, members] = await Promise.all([
+    fetch(`data/${period}/partyvotes.json`).then(r => r.json()),
+    fetch(`data/${period}/membervotes.json`).then(r => r.json()),
+  ]);
+  partyData = parties;
+  memberData = members;
+  renderChart(partyData);
+  renderTable("partyTable", PARTY_COLS, partyData, "party");
+  applyMemberFilter();
+}
+
+function applyMemberFilter() {
+  const q = document.getElementById("memberSearch").value.trim().toLowerCase();
+  const filtered = q
+    ? memberData.filter(m => `${m.Vorname} ${m.Name}`.toLowerCase().includes(q))
+    : memberData;
+  renderTable("memberTable", MEMBER_COLS, filtered, "member");
+}
+
+document.querySelectorAll("nav.tabs button").forEach(btn => btn.onclick = () => {
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("main section").forEach(s => s.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(btn.dataset.tab).classList.add("active");
+  document.getElementById("memberSearch").hidden = btn.dataset.tab !== "members";
+});
+
+document.getElementById("memberSearch").addEventListener("input", applyMemberFilter);
+
+(async () => {
+  const periods = await fetch("data/periods.json").then(r => r.json());
+  const select = document.getElementById("periodSelect");
+  select.innerHTML = periods.map(p => `<option value="${p}">Wahlperiode ${p}</option>`).join("");
+  select.value = periods[periods.length - 1];
+  select.onchange = () => loadPeriod(select.value);
+  loadPeriod(select.value);
+})();
+</script>
+</body>
+</html>
