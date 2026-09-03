@@ -85,6 +85,29 @@
   .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); }
   .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
   .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  #memberTable tbody tr { cursor: pointer; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    align-items: flex-start; justify-content: center;
+    padding: 4vh 1rem; overflow-y: auto; z-index: 10;
+  }
+  .modal-overlay:not([hidden]) { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: 10px; padding: 1.5rem;
+    max-width: 640px; width: 100%; position: relative;
+  }
+  .modal h2 { margin: 0 0 0.25rem; }
+  .modal .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+  #modalClose {
+    position: absolute; top: 0.75rem; right: 0.75rem;
+    border: none; background: none; font-size: 1.4rem; cursor: pointer; color: var(--muted);
+  }
+  .fraction-changes { margin: 0 0 1rem; padding-left: 1.1rem; font-size: 0.88rem; }
+  .choice-ja { color: var(--ja); }
+  .choice-nein { color: var(--nein); }
+  .choice-Enthaltung { color: var(--enthaltung); }
+  .choice-ungültig { color: var(--ungueltig); }
+  .choice-nichtabgegeben { color: var(--nichtabgegeben); }
 </style>
 </head>
 <body>
@@ -126,6 +149,13 @@
     </div>
   </section>
 </main>
+
+<div id="memberModal" class="modal-overlay" hidden>
+  <div class="modal">
+    <button id="modalClose" aria-label="Schließen">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
 
 <script>
 const PARTY_COLORS = {
@@ -186,9 +216,14 @@ function renderTable(tableId, cols, data, kind) {
     renderTable(tableId, cols, data, kind);
   });
 
-  table.querySelector("tbody").innerHTML = sorted.map(row =>
-    "<tr>" + cols.map(([key]) => `<td>${fmt(key, row[key])}</td>`).join("") + "</tr>"
-  ).join("");
+  table.querySelector("tbody").innerHTML = sorted.map(row => {
+    const slugAttr = kind === "member" ? ` data-slug="${row.slug}"` : "";
+    return `<tr${slugAttr}>` + cols.map(([key]) => `<td>${fmt(key, row[key])}</td>`).join("") + "</tr>";
+  }).join("");
+
+  if (kind === "member") {
+    table.querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => openMemberDetail(tr.dataset.slug));
+  }
 }
 
 function renderChart(data) {
@@ -218,7 +253,10 @@ function renderChart(data) {
   });
 }
 
+let currentPeriod;
+
 async function loadPeriod(period) {
+  currentPeriod = period;
   const [parties, members] = await Promise.all([
     fetch(`data/${period}/partyvotes.json`).then(r => r.json()),
     fetch(`data/${period}/membervotes.json`).then(r => r.json()),
@@ -228,7 +266,65 @@ async function loadPeriod(period) {
   renderChart(partyData);
   renderTable("partyTable", PARTY_COLS, partyData, "party");
   applyMemberFilter();
+  openMemberFromHash();
 }
+
+function formatDate(d) {
+  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+}
+
+function renderPeriodSection(period, data) {
+  const changesHtml = data.fraction_changes.length
+    ? `<ul class="fraction-changes">${data.fraction_changes.map(c =>
+        `<li>${formatDate(c.date)}: ${c.from} → ${c.to}</li>`).join("")}</ul>`
+    : "";
+
+  const votesHtml = [...data.votes].reverse().map(v =>
+    `<tr><td>${formatDate(v.date)}</td><td>${v.fraktion}</td><td class="choice-${v.choice}">${v.choice}</td></tr>`
+  ).join("");
+
+  return `
+    <h3>Wahlperiode ${period} — ${data["Fraktion/Gruppe"]} · ${data.votes.length} Abstimmungen</h3>
+    ${changesHtml}
+    <div class="table-wrap" style="max-height:30vh">
+      <table><thead><tr><th>Datum</th><th>Fraktion</th><th>Stimme</th></tr></thead>
+      <tbody>${votesHtml}</tbody></table>
+    </div>
+  `;
+}
+
+async function openMemberDetail(slug) {
+  location.hash = `member=${slug}`;
+  const modal = document.getElementById("memberModal");
+  const body = document.getElementById("modalBody");
+  body.innerHTML = "Lade...";
+  modal.hidden = false;
+
+  const detail = await fetch(`data/members/${slug}.json`).then(r => r.json());
+  const periods = Object.keys(detail.periods).sort((a, b) => b - a);
+
+  body.innerHTML = `
+    <h2>${detail.Vorname} ${detail.Name}</h2>
+    <div class="sub">Wahlperiode(n): ${periods.join(", ")}</div>
+    ${periods.map(p => renderPeriodSection(p, detail.periods[p])).join("")}
+  `;
+}
+
+function closeMemberModal() {
+  document.getElementById("memberModal").hidden = true;
+  history.replaceState(null, "", location.pathname + location.search);
+}
+
+function openMemberFromHash() {
+  const match = location.hash.match(/^#member=(.+)$/);
+  if (match) openMemberDetail(decodeURIComponent(match[1]));
+}
+
+document.getElementById("modalClose").onclick = closeMemberModal;
+document.getElementById("memberModal").onclick = e => {
+  if (e.target.id === "memberModal") closeMemberModal();
+};
+window.addEventListener("hashchange", openMemberFromHash);
 
 function applyMemberFilter() {
   const q = document.getElementById("memberSearch").value.trim().toLowerCase();

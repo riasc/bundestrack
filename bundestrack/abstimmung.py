@@ -1,4 +1,6 @@
 import json
+import re
+import unicodedata
 import utility
 from pathlib import Path
 import pandas as pd
@@ -9,13 +11,29 @@ def write_csv_with_comment(df, path, comment_lines):
             f.write(f"# {line}\n")
         df.to_csv(f, index=False, sep=";")
 
+def slugify(vorname, name):
+    s = re.sub(r"\s+", "-", f"{vorname}-{name}".strip())
+    return re.sub(r"[^\w\-]", "", s, flags=re.UNICODE)
+
+def normalize_key(s):
+    # accent/case-insensitive, so e.g. "Ahmetovic" and "Ahmetović" across different
+    # periods' source files resolve to the same person instead of two separate entries
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+
 
 class NamentlicheAbstimmung:
     def __init__(self, datapath, period, start, end, docs_path=Path("docs/data")):
         files = utility.list_files(datapath / f"{period}" / "abstimmungen")
         range_files = utility.subset_files(files, start, end)
+        self.period = str(period)
         self.docs_path = docs_path / f"{period}"
         self.docs_path.mkdir(parents=True, exist_ok=True)
+        # members are shared across periods (someone can be re-elected), so their detail
+        # file/slug lives outside any single period's folder and gets merged across runs
+        self.members_dir = docs_path / "members"
+        self.members_dir.mkdir(parents=True, exist_ok=True)
+        self.slug_registry_path = self.members_dir / "_slugs.json"
+        self.slug_registry = json.loads(self.slug_registry_path.read_text()) if self.slug_registry_path.exists() else {}
 
         self.members, self.fractions = self.get_members(datapath, period) # get all members of the bundestag
         self.altnames = self.get_altnames(datapath, period) # alternative names
@@ -52,6 +70,8 @@ class NamentlicheAbstimmung:
 
         #merge
         self.abstimmung_df = pd.concat(self.abstimmung_dfs, ignore_index=True)
+        choice_cols = ["ja", "nein", "Enthaltung", "ungültig", "nichtabgegeben"]
+        self.abstimmung_df["choice"] = self.abstimmung_df[choice_cols].idxmax(axis=1)
         membervotes = self.abstimmung_df.groupby(
             ["Fraktion/Gruppe", "Vorname", "Name"]
         )[["ja", "nein", "Enthaltung", "ungültig", "nichtabgegeben"]].sum().reset_index()
@@ -80,6 +100,12 @@ class NamentlicheAbstimmung:
 
         membervotes = membervotes.merge(attendance, on=["Fraktion/Gruppe", "Vorname", "Name"])
 
+        # slug per member, shared across periods (someone can be re-elected) so their
+        # detail page/data stays a single entry regardless of which period links to it
+        membervotes["slug"] = membervotes.apply(
+            lambda row: self.get_or_create_slug(row["Vorname"], row["Name"]), axis=1
+        )
+
         print(membervotes.to_string())
         # save to file
         write_csv_with_comment(membervotes, datapath / f"{period}" / "membervotes.csv", [
@@ -91,6 +117,37 @@ class NamentlicheAbstimmung:
             "ratio_days_present/ratio_days_absent: days_present/days_absent divided by days_total (weighted per day, not per vote)",
         ])
         membervotes.round(4).to_json(self.docs_path / "membervotes.json", orient="records")
+
+        # per-member detail: full vote history (date, fraction at the time, choice) plus
+        # any fraction changes, fetched lazily by the member detail page. Stored one file
+        # per person (not per period) and merged so a member re-elected across periods
+        # keeps a single entry, with a section per period they served
+        slug_by_member = {(row["Vorname"], row["Name"]): row["slug"] for _, row in membervotes.iterrows()}
+
+        for (vorname, name), group in self.abstimmung_df.groupby(["Vorname", "Name"]):
+            votes = group.sort_values("date")[["date", "Fraktion_bei_Abstimmung", "choice"]] \
+                .rename(columns={"Fraktion_bei_Abstimmung": "fraktion"}).to_dict("records")
+
+            fraction_changes = []
+            previous_fraktion = None
+            for vote in votes:
+                if previous_fraktion is not None and vote["fraktion"] != previous_fraktion:
+                    fraction_changes.append({"date": vote["date"], "from": previous_fraktion, "to": vote["fraktion"]})
+                previous_fraktion = vote["fraktion"]
+
+            slug = slug_by_member[(vorname, name)]
+            detail_path = self.members_dir / f"{slug}.json"
+            detail = json.loads(detail_path.read_text()) if detail_path.exists() else {
+                "Vorname": vorname, "Name": name, "periods": {}
+            }
+            detail["periods"][self.period] = {
+                "Fraktion/Gruppe": self.members[(vorname, name)],
+                "votes": votes,
+                "fraction_changes": fraction_changes,
+            }
+            detail_path.write_text(json.dumps(detail, ensure_ascii=False))
+
+        self.slug_registry_path.write_text(json.dumps(self.slug_registry, ensure_ascii=False))
 
         # party-level results, weighted by each party's actual daily seat distribution:
         # each vote is attributed to the fraction a member belonged to on that day, so votes
@@ -144,8 +201,23 @@ class NamentlicheAbstimmung:
         ])
         partyvotes.round(4).to_json(self.docs_path / "partyvotes.json", orient="records")
 
-        periods = sorted(p.name for p in self.docs_path.parent.iterdir() if p.is_dir())
+        periods = sorted(
+            (p.name for p in self.docs_path.parent.iterdir() if p.is_dir() and p.name.isdigit()),
+            key=int,
+        )
         (self.docs_path.parent / "periods.json").write_text(json.dumps(periods))
+
+    def get_or_create_slug(self, vorname, name):
+        key = f"{normalize_key(vorname)}|{normalize_key(name)}"
+        if key not in self.slug_registry:
+            base = slugify(vorname, name)
+            existing = set(self.slug_registry.values())
+            slug, n = base, 2
+            while slug in existing:
+                slug = f"{base}-{n}"
+                n += 1
+            self.slug_registry[key] = slug
+        return self.slug_registry[key]
 
     def get_members(self, datapath, period):
         abgeordnete = {}
