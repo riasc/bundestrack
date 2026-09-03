@@ -1,0 +1,21 @@
+{
+	"wahlkreise": [
+		{
+			"_id": ObjectId("flensburg-schleswig")
+			"nummer": 1,
+			"name": "flensburg-schleswig",
+			"gebiet": [
+				{
+					"name": "flensburg",
+					"siedlungsart": "stadt",
+					"zugehoerigkeit": "kreisfrei"
+				},
+				{
+					"name": 
+
+				}
+			]
+		}
+	]
+
+}

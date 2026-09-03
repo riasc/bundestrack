@@ -263,6 +263,7 @@ Thomas	Gebhart	CDU/CSU
 Jonas	Geissler	CDU/CSU
 Fabian	Gramling	CDU/CSU
 Ingeborg	Gräßle	CDU/CSU
+Ursula	Groden-Kranich	CDU/CSU
 Hermann	Gröhe	CDU/CSU
 Michael	Grosse-Brömer	CDU/CSU
 Markus	Grübel	CDU/CSU

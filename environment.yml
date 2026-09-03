@@ -1,0 +1,11 @@
+name: bundestrack
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.13
+  - pip
+  - pip:
+      - requests
+      - pandas
+      - openpyxl
