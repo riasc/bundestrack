@@ -338,7 +338,7 @@ function renderPeriodSection(period, data) {
   ).join("");
 
   return `
-    <h3>Wahlperiode ${period} — ${data["Fraktion/Gruppe"]} · ${data.votes.length} Abstimmungen</h3>
+    <h3>Bundestag ${period} — ${data["Fraktion/Gruppe"]} · ${data.votes.length} Abstimmungen</h3>
     ${changesHtml}
     <div class="table-wrap" style="max-height:30vh">
       <table><thead><tr><th>Datum</th><th>Fraktion</th><th>Stimme</th></tr></thead>
@@ -359,7 +359,7 @@ async function openMemberDetail(slug) {
 
   body.innerHTML = `
     <h2>${detail.Vorname} ${detail.Name}</h2>
-    <div class="sub">Wahlperiode(n): ${periods.join(", ")}</div>
+    <div class="sub">Bundestag(e): ${periods.join(", ")}</div>
     ${periods.map(p => renderPeriodSection(p, detail.periods[p])).join("")}
   `;
 }
@@ -482,7 +482,7 @@ document.getElementById("memberSearch").addEventListener("input", applyMemberFil
 (async () => {
   const periods = await fetch("data/periods.json").then(r => r.json());
   const select = document.getElementById("periodSelect");
-  select.innerHTML = periods.map(p => `<option value="${p}">Wahlperiode ${p}</option>`).join("");
+  select.innerHTML = periods.map(p => `<option value="${p}">Bundestag ${p}</option>`).join("");
   select.value = periods[periods.length - 1];
   select.onchange = () => loadPeriod(select.value);
   loadPeriod(select.value);

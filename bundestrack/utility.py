@@ -19,10 +19,12 @@ def subset_files(fileslist, start_date, end_date):
 
     # determine minimum of maximum date
     for f in fileslist:
-        file_date = f.name.split("_")[0]
+        # filenames always start with an 8-digit YYYYMMDD date, but what follows varies
+        # (e.g. "20181213.xls" has no separator before the extension at all)
+        file_date = f.name[:8]
         file_year = file_date[:4]
         file_month = file_date[4:6]
-        file_day = file_date[6:]
+        file_day = file_date[6:8]
 
         # create date object
         date_obj = date(int(file_year), int(file_month), int(file_day))
