@@ -11,14 +11,22 @@ def write_csv_with_comment(df, path, comment_lines):
             f.write(f"# {line}\n")
         df.to_csv(f, index=False, sep=";")
 
+def fold_ascii(s):
+    s = s.replace("ß", "ss").replace("ẞ", "SS")
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+
 def slugify(vorname, name):
+    # plain lowercase ASCII: avoids relying on git/filesystem Unicode normalization
+    # (macOS stores accented filenames decomposed, which can byte-mismatch a composed
+    # slug elsewhere) and keeps URLs simple
     s = re.sub(r"\s+", "-", f"{vorname}-{name}".strip())
-    return re.sub(r"[^\w\-]", "", s, flags=re.UNICODE)
+    s = fold_ascii(s).lower()
+    return re.sub(r"[^\w\-]", "", s)
 
 def normalize_key(s):
     # accent/case-insensitive, so e.g. "Ahmetovic" and "Ahmetović" across different
     # periods' source files resolve to the same person instead of two separate entries
-    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+    return fold_ascii(s).lower()
 
 
 class NamentlicheAbstimmung:
