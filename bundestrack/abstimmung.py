@@ -126,6 +126,26 @@ class NamentlicheAbstimmung:
         ])
         membervotes.round(4).to_json(self.docs_path / "membervotes.json", orient="records")
 
+        # monthly attendance leaderboard: same day-level attendance logic as above, but
+        # bucketed by calendar month instead of the whole date range, so the site can show
+        # a per-month top 10 most/least present. Months with no Abstimmungen (recess) simply
+        # don't appear - no need to special-case them.
+        self.abstimmung_df["month"] = self.abstimmung_df["date"].str[:6]
+        monthly_per_day = self.abstimmung_df.groupby(
+            ["Fraktion/Gruppe", "Vorname", "Name", "month", "date"]
+        )["nichtabgegeben"].agg(["sum", "size"])
+        monthly_attended_day = monthly_per_day["sum"] < monthly_per_day["size"]
+        monthly_attendance = monthly_attended_day.groupby(
+            ["Fraktion/Gruppe", "Vorname", "Name", "month"]
+        ).agg(days_present="sum", days_total="count").reset_index()
+        monthly_attendance["ratio_days_present"] = monthly_attendance["days_present"] / monthly_attendance["days_total"]
+        monthly_attendance["ratio_days_absent"] = 1 - monthly_attendance["ratio_days_present"]
+        monthly_attendance = monthly_attendance.merge(
+            membervotes[["Fraktion/Gruppe", "Vorname", "Name", "slug"]],
+            on=["Fraktion/Gruppe", "Vorname", "Name"],
+        )
+        monthly_attendance.round(4).to_json(self.docs_path / "monthly_attendance.json", orient="records")
+
         # per-member detail: full vote history (date, fraction at the time, choice) plus
         # any fraction changes, fetched lazily by the member detail page. Stored one file
         # per person (not per period) and merged so a member re-elected across periods
@@ -195,6 +215,17 @@ class NamentlicheAbstimmung:
         party_attendance = party_attendance.rename(columns={"Fraktion_bei_Abstimmung": "Fraktion/Gruppe"})
 
         partyvotes = partyvotes.merge(party_attendance, on="Fraktion/Gruppe")
+
+        # same attendance, bucketed by month, so a per-party trend over time can be charted
+        per_party_day_by_month = per_party_day.reset_index()
+        per_party_day_by_month["month"] = per_party_day_by_month["date"].str[:6]
+        monthly_party_attendance = per_party_day_by_month.groupby(["Fraktion_bei_Abstimmung", "month"]).agg(
+            days_total=("ratio_present", "size"),
+            ratio_days_present=("ratio_present", "mean"),
+        ).reset_index()
+        monthly_party_attendance["ratio_days_absent"] = 1 - monthly_party_attendance["ratio_days_present"]
+        monthly_party_attendance = monthly_party_attendance.rename(columns={"Fraktion_bei_Abstimmung": "Fraktion/Gruppe"})
+        monthly_party_attendance.round(4).to_json(self.docs_path / "monthly_party_attendance.json", orient="records")
 
         print(partyvotes.to_string())
         write_csv_with_comment(partyvotes, datapath / f"{period}" / "partyvotes.csv", [

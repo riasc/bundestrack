@@ -72,7 +72,7 @@
     padding: 1.25rem;
     margin-bottom: 1.5rem;
   }
-  #partyChart { max-height: 420px; }
+  #partyChart, #attendanceChart { max-height: 420px; }
   table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
   th, td { padding: 0.45rem 0.6rem; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
   th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: left; }
@@ -85,7 +85,10 @@
   .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); }
   .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
   .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-  #memberTable tbody tr { cursor: pointer; }
+  #memberTable tbody tr, .ranking-grid tbody tr { cursor: pointer; }
+  .ranking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .ranking-grid h3 { margin: 0 0 0.75rem; }
+  @media (max-width: 700px) { .ranking-grid { grid-template-columns: 1fr; } }
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
     align-items: flex-start; justify-content: center;
@@ -124,10 +127,14 @@
 <nav class="tabs">
   <button data-tab="parties" class="active">Fraktionen</button>
   <button data-tab="members">Abgeordnete</button>
+  <button data-tab="ranking">Rangliste</button>
 </nav>
 
 <main>
   <section id="parties" class="active">
+    <div class="card table-wrap">
+      <table id="partyTable"><thead></thead><tbody></tbody></table>
+    </div>
     <div class="card">
       <canvas id="partyChart"></canvas>
       <div class="legend">
@@ -138,14 +145,31 @@
         <span><i class="swatch" style="background:var(--nichtabgegeben)"></i>nichtabgegeben</span>
       </div>
     </div>
-    <div class="card table-wrap">
-      <table id="partyTable"><thead></thead><tbody></tbody></table>
+    <div class="card">
+      <h3>Anwesenheit im Zeitverlauf</h3>
+      <canvas id="attendanceChart"></canvas>
     </div>
   </section>
 
   <section id="members">
     <div class="card table-wrap">
       <table id="memberTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="ranking">
+    <div class="card">
+      <select id="monthSelect"></select>
+    </div>
+    <div class="ranking-grid">
+      <div class="card table-wrap">
+        <h3 id="topAbsentHeading">Häufigste Abwesenheit</h3>
+        <table id="topAbsentTable"><thead></thead><tbody></tbody></table>
+      </div>
+      <div class="card table-wrap">
+        <h3 id="topPresentHeading">Beste Anwesenheit</h3>
+        <table id="topPresentTable"><thead></thead><tbody></tbody></table>
+      </div>
     </div>
   </section>
 </main>
@@ -186,7 +210,7 @@ const MEMBER_COLS = [
 ];
 const PCT_COLS = new Set(["ratio_ja", "ratio_nein", "ratio_Enthaltung", "ratio_ungültig", "ratio_nichtabgegeben", "ratio_days_present", "ratio_days_absent"]);
 
-let chart, partyData = [], memberData = [];
+let chart, attendanceChart, partyData = [], memberData = [];
 const sortState = { party: { key: "total_votes", asc: false }, member: { key: "ratio_nichtabgegeben", asc: false } };
 
 function fmt(key, value) {
@@ -253,20 +277,50 @@ function renderChart(data) {
   });
 }
 
+function renderAttendanceChart(data) {
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const parties = [...new Set(data.map(d => d["Fraktion/Gruppe"]))];
+  const datasets = parties.map(party => {
+    const byMonth = new Map(data.filter(d => d["Fraktion/Gruppe"] === party).map(d => [d.month, d.ratio_days_present * 100]));
+    return {
+      label: party,
+      data: months.map(m => byMonth.get(m) ?? null),
+      borderColor: PARTY_COLORS[party] || "#888",
+      backgroundColor: PARTY_COLORS[party] || "#888",
+      spanGaps: true,
+      tension: 0.2,
+    };
+  });
+
+  if (attendanceChart) attendanceChart.destroy();
+  attendanceChart = new Chart(document.getElementById("attendanceChart"), {
+    type: "line",
+    data: { labels: months.map(formatMonth), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 100, title: { display: true, text: "% Anwesenheit" } } },
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
+}
+
 let currentPeriod;
 
 async function loadPeriod(period) {
   currentPeriod = period;
-  const [parties, members] = await Promise.all([
+  const [parties, members, partyAttendance] = await Promise.all([
     fetch(`data/${period}/partyvotes.json`).then(r => r.json()),
     fetch(`data/${period}/membervotes.json`).then(r => r.json()),
+    fetch(`data/${period}/monthly_party_attendance.json`).then(r => r.json()),
   ]);
   partyData = parties;
   memberData = members;
   renderChart(partyData);
+  renderAttendanceChart(partyAttendance);
   renderTable("partyTable", PARTY_COLS, partyData, "party");
   applyMemberFilter();
   openMemberFromHash();
+  if (document.getElementById("ranking").classList.contains("active")) loadRanking();
 }
 
 function formatDate(d) {
@@ -334,12 +388,93 @@ function applyMemberFilter() {
   renderTable("memberTable", MEMBER_COLS, filtered, "member");
 }
 
+const MONTH_NAMES = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+function formatMonth(m) {
+  return `${MONTH_NAMES[parseInt(m.slice(4, 6), 10) - 1]} ${m.slice(0, 4)}`;
+}
+
+const WHOLE_PERIOD = "__all__";
+let monthlyData, monthlyDataPeriod;
+
+async function loadRanking() {
+  if (monthlyDataPeriod !== currentPeriod) {
+    monthlyData = await fetch(`data/${currentPeriod}/monthly_attendance.json`).then(r => r.json());
+    monthlyDataPeriod = currentPeriod;
+    const months = [...new Set(monthlyData.map(d => d.month))].sort();
+    const select = document.getElementById("monthSelect");
+    select.innerHTML = `<option value="${WHOLE_PERIOD}">Gesamter Zeitraum</option>`
+      + months.map(m => `<option value="${m}">${formatMonth(m)}</option>`).join("");
+    select.value = WHOLE_PERIOD;
+    select.onchange = renderRanking;
+  }
+  renderRanking();
+}
+
+// top N by key, but extended to include everyone tied with the Nth value - a strict
+// slice(0, n) would arbitrarily cut a tie in half (common here: many months have only
+// one sitting day, so attendance is often a flat 0% or 100% for a large group)
+function topWithTies(rows, key, n) {
+  const sorted = [...rows].sort((a, b) => b[key] - a[key]);
+  if (sorted.length <= n) return sorted;
+  const cutoff = sorted[n - 1][key];
+  return sorted.filter(r => r[key] >= cutoff);
+}
+
+function renderRankingTable(tableId, headingId, label, rows, valueLabel, valueFmt, valueTitle) {
+  document.getElementById(headingId).textContent = rows.length > 10 ? `${label} (${rows.length}, Gleichstand)` : label;
+  const table = document.getElementById(tableId);
+  const titleAttr = valueTitle ? ` title="${valueTitle.replace(/"/g, "&quot;")}"` : "";
+  table.innerHTML = `<thead><tr><th>Name</th><th>Fraktion</th><th${titleAttr}>${valueLabel}</th></tr></thead><tbody>${
+    rows.map(r => `<tr data-slug="${r.slug}"><td>${r.Vorname} ${r.Name}</td><td>${r["Fraktion/Gruppe"]}</td><td>${valueFmt(r)}</td></tr>`).join("")
+  }</tbody>`;
+  table.querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => openMemberDetail(tr.dataset.slug));
+}
+
+// how often each member landed in the tied-worst (or tied-best) attendance group across
+// every month of the period - a single month's snapshot is noisy (many months have only
+// one sitting day, so ties are common), but a member who shows up repeatedly is a much
+// stronger signal of chronic absence than any one month's blended percentage
+function tallyMonthlyAppearances(months, key, n) {
+  const counts = new Map();
+  for (const month of months) {
+    const rows = monthlyData.filter(d => d.month === month);
+    for (const r of topWithTies(rows, key, n)) {
+      const entry = counts.get(r.slug) ?? { ...r, months: 0 };
+      entry.months += 1;
+      counts.set(r.slug, entry);
+    }
+  }
+  return topWithTies([...counts.values()], "months", 10);
+}
+
+function renderRanking() {
+  const selected = document.getElementById("monthSelect").value;
+  const pctFmt = r => `${(r.ratio_days_present * 100).toFixed(0)}% (${r.days_present}/${r.days_total})`;
+
+  if (selected === WHOLE_PERIOD) {
+    const months = [...new Set(monthlyData.map(d => d.month))];
+    const monthsFmt = r => `${r.months} von ${months.length} Monaten`;
+    renderRankingTable("topAbsentTable", "topAbsentHeading", "Häufigste Abwesenheit",
+      tallyMonthlyAppearances(months, "ratio_days_absent", 10), "Monate unten", monthsFmt,
+      "Anzahl der Monate, in denen diese Person zur Gruppe mit der geringsten Anwesenheit dieses Monats gehörte.");
+    renderRankingTable("topPresentTable", "topPresentHeading", "Beste Anwesenheit",
+      tallyMonthlyAppearances(months, "ratio_days_present", 10), "Monate oben", monthsFmt,
+      "Anzahl der Monate, in denen diese Person zur Gruppe mit der höchsten Anwesenheit dieses Monats gehörte.");
+    return;
+  }
+
+  const rows = monthlyData.filter(d => d.month === selected);
+  renderRankingTable("topAbsentTable", "topAbsentHeading", "Häufigste Abwesenheit", topWithTies(rows, "ratio_days_absent", 10), "Anwesenheit", pctFmt);
+  renderRankingTable("topPresentTable", "topPresentHeading", "Beste Anwesenheit", topWithTies(rows, "ratio_days_present", 10), "Anwesenheit", pctFmt);
+}
+
 document.querySelectorAll("nav.tabs button").forEach(btn => btn.onclick = () => {
   document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
   document.querySelectorAll("main section").forEach(s => s.classList.remove("active"));
   btn.classList.add("active");
   document.getElementById(btn.dataset.tab).classList.add("active");
   document.getElementById("memberSearch").hidden = btn.dataset.tab !== "members";
+  if (btn.dataset.tab === "ranking") loadRanking();
 });
 
 document.getElementById("memberSearch").addEventListener("input", applyMemberFilter);
